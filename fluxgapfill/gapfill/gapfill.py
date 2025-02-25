@@ -186,6 +186,8 @@ def gapfill_site_model_predictor(site, model, predictor, distribution, site_dir)
         on='TIMESTAMP_END',
         how='left'
     )
+    datetimes = pd.to_datetime(gap_df["TIMESTAMP_END"], format='%Y%m%d%H%M')
+    gap_df["Year"] = [dt.year for dt in datetimes]
 
     # Add in observed values to FCH4_F, FCH4_F{1-N}
     fch4_columns = [f'FCH4_F{i+1}' for i in range(num_models)]
@@ -273,6 +275,7 @@ def compute_annual_budget(site, gap_df, site_budget_date_ranges):
         'budget_mean': budget_df['budget_mean'].mean(),
         'budget_uncertainty': budget_df['budget_uncertainty'].mean()
     }
-    budget_df = budget_df.append(mean_budget_dict, ignore_index=True)
+    mean_budget_dict = pd.DataFrame(mean_budget_dict, index=[0])
+    budget_df = pd.concat([budget_df, mean_budget_dict], ignore_index=True)
     return budget_df
 
