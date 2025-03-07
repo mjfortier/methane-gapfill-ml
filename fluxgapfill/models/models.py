@@ -43,7 +43,6 @@ class ANN(BaseModel):
             "hidden_layer_sizes": [(i, ) for i in range(5, 30)] +
                                   [(i, int(i * 0.5)) for i in range(5, 30)] +
                                   [(i, int(i * 0.75)) for i in range(5, 30)],
-            "solver": ["lbfgs", "adam"],
             "learning_rate_init": [0.01, 0.001, 0.0001],
             "max_iter": [100000],
             "tol": [1e-7],
@@ -67,7 +66,6 @@ class RandomForest(BaseModel):
         self.model = RandomForestRegressor(n_jobs=-1)
         self.param_dist = {
             "n_estimators": np.linspace(start=50, stop=500, num=10).astype(int),
-            "max_features": ['auto', 'sqrt'],
             "max_depth": list(np.linspace(10, 110, num=11).astype(int)) + [None],
             "min_samples_split": [2, 5, 10],
             "min_samples_leaf": [1, 2, 4],

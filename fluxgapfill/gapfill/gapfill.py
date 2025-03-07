@@ -186,7 +186,7 @@ def gapfill_site_model_predictor(site, model, predictor, distribution, site_dir)
         on='TIMESTAMP_END',
         how='left'
     )
-    datetimes = pd.to_datetime(gap_df["TIMESTAMP_END"], format='%Y%m%d%H%M')
+    datetimes = pd.to_datetime(gap_df["TIMESTAMP_START"], format='%Y%m%d%H%M')
     gap_df["Year"] = [dt.year for dt in datetimes]
 
     # Add in observed values to FCH4_F, FCH4_F{1-N}
