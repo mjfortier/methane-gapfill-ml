@@ -41,12 +41,8 @@ class BaseModel(object):
         return X
 
     def impute(self, X):
-        """Impute missing predictors."""
-        if X.isna().any().any():
-            self.imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
-            X.loc[:, :] = self.imputer.fit_transform(X)
-        else:
-            self.imputer = None
+        self.imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
+        X.loc[:, :] = self.imputer.fit_transform(X)
         return X
 
     def fit(self, X, y):
@@ -71,8 +67,7 @@ class BaseModel(object):
 
     def predict(self, X):
         X = self.preprocess(X)
-        if self.imputer is not None:
-            X.loc[:, :] = self.imputer.transform(X)
+        X.loc[:, :] = self.imputer.transform(X)
         if self.scaler is not None:
             X.loc[:, :] = self.scaler.transform(X)
         return self.model.predict(X)
