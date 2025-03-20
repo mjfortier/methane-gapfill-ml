@@ -60,11 +60,6 @@ def gapfill(
         data/{SiteID}/gapfilled/{model}_{predictors}_{distribution}_budget.csv
     """
     # parse inputs
-    print('''
-    ######################
-    # Debug sync testing #
-    ######################
-    ''')
     if isinstance(sites, str):
         sites = sites.split(",")
     if isinstance(models, str):
