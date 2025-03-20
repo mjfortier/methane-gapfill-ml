@@ -61,11 +61,7 @@ def preprocess(
 
     Writes all preprocessed data to data/{SiteID}/ for each {SiteID}
     """
-    print('''
-    ######################
-    # Debug sync testing #
-    ######################
-    ''')
+
     args = locals().copy()
     data_dir = Path(data_dir) # change to input
 
