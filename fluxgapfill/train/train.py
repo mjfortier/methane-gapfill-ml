@@ -55,11 +55,6 @@ def train(
     Saves trained models to data/{SiteID}/{model}/{predictor}/
     for each {SiteID}, {model}, and {predictor} subset.
     """
-    print('''
-    ######################
-    # Debug sync testing #
-    ######################
-    ''')
     general_args = ['sites', 'models', 'predictors', 'predictors_paths',
                     'overwrite_existing_models']
     args = locals()
