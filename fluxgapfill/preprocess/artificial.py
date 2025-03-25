@@ -4,8 +4,11 @@ from tqdm import tqdm
 from scipy.stats import geom
 from itertools import product
 from sklearn.neighbors import KernelDensity
-
+from concurrent.futures import ProcessPoolExecutor
 from .distances import distances
+import multiprocessing
+from functools import partial
+CPU_COUNT = multiprocessing.cpu_count()
 
 
 def get_gap_lengths(flux_data):
@@ -89,7 +92,7 @@ def sample_artificial_gaps(flux_data,
                            sampling_pmf,
                            eval_frac=0.1,
                            overlap_retries=20,
-                           seed=1000):
+                           seed=1000) -> np.array:
     """ Randomly introduce gaps in a time series where the length of gaps
     are i.i.d. samples from a specified probability mass function.
     In order to keep the distribution of gap lengths equal to the sampling
@@ -160,7 +163,7 @@ def simulate_artificial_gap_samples(dist_fn, flux_data, gap_lengths,
     """
     dist_scores = []
 
-    for i in range(n_mc):
+    for _ in range(n_mc):
         # Vary the seed to sample different gap distributions
         r_seed = np.random.randint(1, 100000)
 
@@ -181,13 +184,26 @@ def simulate_artificial_gap_samples(dist_fn, flux_data, gap_lengths,
     return dist_scores 
 
 
+def _evaluate_pmf_scores(alpha_p, gap_pmf, dist_fn, flux_data, gap_lengths, n_mc):
+    '''Wrapper function for multicore processing'''
+    alpha, p = alpha_p
+    sampling_pmf = convex_combine_geom(gap_pmf, p=p, alpha=alpha)
+
+    # score on monte carlo samples
+    dist_scores = simulate_artificial_gap_samples(
+        dist_fn, flux_data, gap_lengths, sampling_pmf, n_mc=n_mc
+    )
+    score = np.mean(dist_scores)
+    return sampling_pmf, score
+
+
 def learn_gap_dist(
         flux_data,
         dist,
         n_grid,
         n_mc,
         seed
-):
+) -> np.array:
     """Approximate the empirical gap length distribution.
 
     Args:
@@ -225,28 +241,44 @@ def learn_gap_dist(
         n_grid
     )
 
-    # Get distance function from name
     dist_fn = distances[dist]
 
-    # store best results
-    best_pmf = None
-    best_dist_score = np.inf
+    search_space = list(product(alpha_search_space, p_search_space))
+    max_workers = np.clip(1, CPU_COUNT-1, 8) # Don't saturate the machine :(
+    _evaluate_pmf_scores_partial = partial(
+        _evaluate_pmf_scores, 
+        gap_pmf=gap_pmf, 
+        dist_fn=dist_fn, 
+        flux_data=flux_data, 
+        gap_lengths=gap_lengths, 
+        n_mc=n_mc
+    )
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        results = list(tqdm(executor.map(
+                _evaluate_pmf_scores_partial, search_space
+            ), total=len(search_space)))
+    
+    def argmin(l):
+        return min(range(len(l)), key=lambda e : l[e][1])
+    
+    best_pmf = results[argmin(results)][0]
 
-    for (alpha, p) in tqdm(list(product(alpha_search_space, p_search_space))):
-        # propose sampling distribution
-        sampling_pmf = convex_combine_geom(gap_pmf, p=p, alpha=alpha)
 
-        # score on monte carlo samples
-        dist_scores = simulate_artificial_gap_samples(
-            dist_fn, flux_data, gap_lengths, sampling_pmf, n_mc=n_mc
-        )
+    # for (alpha, p) in tqdm(list(product(alpha_search_space, p_search_space))):
+    #     # propose sampling distribution
+    #     sampling_pmf = convex_combine_geom(gap_pmf, p=p, alpha=alpha)
 
-        score = np.mean(dist_scores)
+    #     # score on monte carlo samples
+    #     dist_scores = simulate_artificial_gap_samples(
+    #         dist_fn, flux_data, gap_lengths, sampling_pmf, n_mc=n_mc
+    #     )
 
-        # update best results
-        if score < best_dist_score:
-            best_dist_score = score
-            best_pmf = sampling_pmf
+    #     score = np.mean(dist_scores)
+
+    #     # update best results
+    #     if score < best_dist_score:
+    #         best_dist_score = score
+    #         best_pmf = sampling_pmf
 
     print(" - Done estimating artificial gap distribution.")
     return best_pmf

@@ -8,36 +8,20 @@ from fluxgapfill.metrics import metric_dict
 
 
 class EnsembleModel(object):
-    def __init__(self, model_dir, use_iterator=False):
-        self.model_dir = model_dir
-        self.model_name = model_dir.parent.name
-        self.use_iterator = use_iterator
-        # Load all models from directory.
-        if use_iterator:
-            def _iterator():
-                for model_path in self.model_dir.glob("*.pkl"):
-                    with open(model_path, 'rb') as f:
-                        yield model_path.stem, pkl.load(f)
-
-            self.split2model = lambda: 0
-            self.split2model.items = _iterator
-
-        else:
-            self.split2model = {}
-            for model_path in self.model_dir.glob("*.pkl"):
-                with open(model_path, 'rb') as f:
-                    model = pkl.load(f)
-                self.split2model[model_path.stem] = model
-            # Assume every model in the ensemble has the same set of predictors
-            self._predictors = model.predictors
+    def __init__(self, model_path):
+        self.model_path = model_path
+        self.model_name = model_path.parent.name
+        self.split2model = {}
+        for model_path in self.model_path.glob("*.pkl"):
+            with open(model_path, 'rb') as f:
+                model = pkl.load(f)
+            self.split2model[model_path.stem] = model
+        # Assume every model in the ensemble has the same set of predictors
+        self._predictors = model.predictors
 
     @property
     def predictors(self):
-        if self.use_iterator:
-            for _, model in self.split2model.items():
-                return model.predictors
-        else:
-            return self._predictors
+        return self._predictors
 
     @property
     def feature_importances(self):
@@ -55,7 +39,7 @@ class EnsembleModel(object):
     def predict_individual(self, X):
         """Return individual model predictions on inputs X"""
         model_preds = []
-        for split, model in self.split2model.items():
+        for _, model in self.split2model.items():
             model_preds.append(model.predict(X))
         return np.array(model_preds)
 

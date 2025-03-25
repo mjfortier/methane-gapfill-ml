@@ -4,54 +4,66 @@ import pickle as pkl
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import RandomizedSearchCV
 
-from fluxgapfill.predictors import *
 from fluxgapfill.metrics import metric_dict
+
+
+def add_wind_predictors(df):
+    df = df.copy()
+    df['WD'] = df['WD'] / 180 * np.pi
+    notna = df['WD'].notna()
+    df.loc[notna, 'WD_sin'] = np.sin(df.loc[notna, 'WD'])
+    df.loc[notna, 'WD_cos'] = np.cos(df.loc[notna, 'WD'])
+    df.drop('WD', axis=1, inplace=True)
+    return df
+
+
+def add_temporal_predictors(df):
+    # Assumes that the index is Ameriflux datetime, ex: 201906120330
+    df = df.copy()
+    timestamp = pd.to_datetime(pd.Series(df.index), format='%Y%m%d%H%M')
+    doy = timestamp.dt.dayofyear
+    tod = timestamp.dt.hour
+    tod += 0.5 * (timestamp.dt.minute.astype(float) == 30).astype(float)
+
+    doy_sin = np.sin(2 * np.pi * (doy - 1) / 366)
+    doy_cos = np.cos(2 * np.pi * (doy - 1) / 366).rename('doy_cos')
+    tod_sin = np.sin(2 * np.pi * (tod - 1) / 24).rename('tod_sin')
+    tod_cos = np.cos(2 * np.pi * (tod - 1) / 24).rename('tod_cos')
+
+    df.loc[:,'doy_sin'] = doy_sin.values
+    df.loc[:,'doy_cos'] = doy_cos.values
+    df.loc[:,'tod_sin'] = tod_sin.values
+    df.loc[:,'tod_cos'] = tod_cos.values
+    return df
 
 
 class BaseModel(object):
     """Base class for all models."""
 
-    def __init__(self, predictor_subset, cv=5, n_iter=20):
-        self.predictor_subset = predictor_subset
+    def __init__(self, predictors, cv=5, n_iter=20):
+        self.predictors = predictors
         self.cv = cv
         self.n_iter = n_iter
-
-    def preprocess(self, X):
-        """Prepare X to be input to the model."""
-        X = X.copy()
-        predictor_subset = self.predictor_subset.copy()
-        if 'all' in predictor_subset:
-            predictor_subset = add_all_predictors(predictor_subset, X.columns)
-        
-        use_temporal = 'temporal' in predictor_subset
-        if use_temporal:
-            X_temporal = get_temporal_predictors(
-                X['TIMESTAMP_END']
-            )
-            predictor_subset.remove('temporal')
-
-        X = X[predictor_subset]
-
-        if use_temporal:
-            X = pd.concat([X, X_temporal], axis=1)
-
-        if 'WD' in predictor_subset:
-            X = process_wind_direction_predictor(X)
-
-        return X
-
-    def impute(self, X):
         self.imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
-        X.loc[:, :] = self.imputer.fit_transform(X)
-        return X
 
-    def fit(self, X, y):
+    def preprocess(self, df):
+        """Prepare df to be input to the model."""
+        df = df[self.predictors]
+        df = add_temporal_predictors(df)
+
+        if 'WD' in self.predictors:
+            df = add_wind_predictors(df)
+        return df
+
+    def fit(self, df, target):
         """Train on a training set and select optimal hyperparameters."""
-        X = self.preprocess(X)
-        X = self.impute(X)
+        y = df[target]
+        df = self.preprocess(df)
 
+        df.loc[:, :] = self.imputer.fit_transform(df)
         if self.scaler is not None:
-            X.loc[:, :] = self.scaler.fit_transform(X)
+            df.loc[:, :] = self.scaler.fit_transform(df)
+        
         random_search = RandomizedSearchCV(
             estimator=self.model,
             param_distributions=self.param_dist,
@@ -60,24 +72,28 @@ class BaseModel(object):
             scoring="neg_mean_squared_error",
             n_jobs=-1
         )
-
-        random_search.fit(X, y)
+        
+        random_search.fit(df, y)
         self.model = random_search.best_estimator_
-        self.predictors = X.columns.tolist()
 
-    def predict(self, X):
-        X = self.preprocess(X)
-        X.loc[:, :] = self.imputer.transform(X)
+    def predict(self, df):
+        df = self.preprocess(df)
+        df.loc[:, :] = self.imputer.transform(df)
         if self.scaler is not None:
-            X.loc[:, :] = self.scaler.transform(X)
-        return self.model.predict(X)
+            df.loc[:, :] = self.scaler.fit_transform(df)
+        
+        return self.model.predict(df)
 
-    def evaluate(self, X, y, metric):
-        y_hat = self.predict(X)
-        if metric not in metric_dict:
-            raise ValueError(f"Metric {metric} not supported.")
-        metric_fn = metric_dict[metric]
-        return metric_fn(y, y_hat)
+    def evaluate(self, df, target, metrics):
+        y = df[target]
+        y_hat = self.predict(df)
+        scores = []
+        for metric in metrics:
+            if metric not in metric_dict:
+                raise ValueError(f"Metric {metric} not supported.")
+            metric_fn = metric_dict[metric]
+            scores.append(metric_fn(y, y_hat))
+        return scores
 
     def save(self, path):
         """Save model to path."""
