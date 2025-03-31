@@ -263,22 +263,5 @@ def learn_gap_dist(
     
     best_pmf = results[argmin(results)][0]
 
-
-    # for (alpha, p) in tqdm(list(product(alpha_search_space, p_search_space))):
-    #     # propose sampling distribution
-    #     sampling_pmf = convex_combine_geom(gap_pmf, p=p, alpha=alpha)
-
-    #     # score on monte carlo samples
-    #     dist_scores = simulate_artificial_gap_samples(
-    #         dist_fn, flux_data, gap_lengths, sampling_pmf, n_mc=n_mc
-    #     )
-
-    #     score = np.mean(dist_scores)
-
-    #     # update best results
-    #     if score < best_dist_score:
-    #         best_dist_score = score
-    #         best_pmf = sampling_pmf
-
     print(" - Done estimating artificial gap distribution.")
     return best_pmf

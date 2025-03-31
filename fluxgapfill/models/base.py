@@ -23,12 +23,12 @@ def add_temporal_predictors(df):
     timestamp = pd.to_datetime(pd.Series(df.index), format='%Y%m%d%H%M')
     doy = timestamp.dt.dayofyear
     tod = timestamp.dt.hour
-    tod += 0.5 * (timestamp.dt.minute.astype(float) == 30).astype(float)
+    tod += 0.5 * (timestamp.dt.minute == 30)
 
-    doy_sin = np.sin(2 * np.pi * (doy - 1) / 366)
-    doy_cos = np.cos(2 * np.pi * (doy - 1) / 366).rename('doy_cos')
-    tod_sin = np.sin(2 * np.pi * (tod - 1) / 24).rename('tod_sin')
-    tod_cos = np.cos(2 * np.pi * (tod - 1) / 24).rename('tod_cos')
+    doy_sin = np.sin(2 * np.pi * (doy - 1) / 366).rename('doy_sin').astype(np.float32)
+    doy_cos = np.cos(2 * np.pi * (doy - 1) / 366).rename('doy_cos').astype(np.float32)
+    tod_sin = np.sin(2 * np.pi * (tod - 1) / 24).rename('tod_sin').astype(np.float32)
+    tod_cos = np.cos(2 * np.pi * (tod - 1) / 24).rename('tod_cos').astype(np.float32)
 
     df.loc[:,'doy_sin'] = doy_sin.values
     df.loc[:,'doy_cos'] = doy_cos.values

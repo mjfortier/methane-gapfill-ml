@@ -52,7 +52,7 @@ def test(
     
     models_path = data_dir / 'models'
     index_path = data_dir / 'indices'
-    test_idx = np.load(index_path / 'test.npy')
+    test_idx = np.load(index_path / 'test.npy', allow_pickle=True)
     df_test = df.loc[test_idx]
     for model in models:
         model_path = models_path / model

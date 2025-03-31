@@ -69,7 +69,8 @@ def train(
     num_splits = len(list(index_path.glob('train*.npy')))
     if num_splits < 1:
         raise ValueError('Must have at least one set of train / val indices')
-    train_val_splits = [(np.load(index_path / f'train{i}.npy'), np.load(index_path / f'val{i}.npy'))
+    train_val_splits = [(np.load(index_path / f'train{i}.npy', allow_pickle=True),
+                         np.load(index_path / f'val{i}.npy', allow_pickle=True))
                         for i in range(num_splits)]
     
     for model in models:
@@ -85,7 +86,7 @@ def train(
         ModelClass = get_model_class(model)
         all_scores = defaultdict(list)
         print(f'Training model {model}...')
-        for i, train_idx, val_idx in tqdm(enumerate(train_val_splits)):
+        for i, (train_idx, val_idx) in tqdm(enumerate(train_val_splits)):
             df_train = df.loc[train_idx]
             df_val = df.loc[val_idx]
 

@@ -48,8 +48,7 @@ def gapfill(
     gapfilled columns, plus columns for the
         predicted mean (FCH4_F)
         95% uncertainty (FCH4_uncertainty)
-        spread individual predictions (FCH4{1-N})
-    and writes budget data to
+        spread individual predictions (FCH4{1-N}) and writes budget data to
         data/{SiteID}/gapfilled/{model}_{predictors}_{distribution}_budget.csv
     """
     # parse inputs
@@ -75,6 +74,7 @@ def gapfill(
         
         df_budget = compute_annual_budget(df_gapfilled)
         df_budget.to_csv(model_dir / f"gapfilled_{distribution}_budget.csv", index=False)
+        return df_gapfilled
 
 
 def gapfill_site_model_predictor(model_dir, df, distribution):
